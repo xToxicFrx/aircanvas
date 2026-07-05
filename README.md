@@ -19,7 +19,8 @@ Work in progress — built over a 10-day sprint.
       smooth curve rendering, unit tests (Vitest) for pinch/RDP/filter
 - [x] **Day 4:** Air toolbar — hover-dwell tool selection (colors + eraser) with
       progress ring, stroke-level eraser with segment hit testing, snapshot undo history
-- [ ] **Day 5:** Drawing modes (freehand vs. structured sketch), export groundwork
+- [x] **Day 5:** PNG + SVG export — SVG paths use the same midpoint-quadratic
+      smoothing as the canvas renderer, so exports match the live drawing exactly
 - [ ] **Day 6:** AI cleanup — sketch → clean diagram JSON / UI sketch → HTML/CSS
 - [ ] **Day 7:** Diagram renderer + live preview of generated UI code
 - [ ] **Day 8:** Local persistence (IndexedDB), export as PNG/SVG/code

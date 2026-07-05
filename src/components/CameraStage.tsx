@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { HandLandmarker } from '@mediapipe/tasks-vision'
 import { useHandLandmarker } from '../hooks/useHandLandmarker'
 import { strokeHit } from '../lib/erase'
+import { downloadBlob, renderStrokesToPng, strokesToSvg } from '../lib/export'
 import { PointFilter } from '../lib/filters'
 import { nextPinchState, penPoint, pinchRatio, type Point } from '../lib/pinch'
 import { simplifyStroke } from '../lib/simplify'
@@ -71,6 +72,29 @@ export function CameraStage() {
     pushHistory()
     strokesRef.current = []
     syncUi()
+  }
+
+  function exportDims(): { w: number; h: number } {
+    const video = videoRef.current
+    return video && video.videoWidth > 0
+      ? { w: video.videoWidth, h: video.videoHeight }
+      : { w: 1280, h: 720 }
+  }
+
+  function stamp(): string {
+    return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+  }
+
+  async function exportPng() {
+    const { w, h } = exportDims()
+    const blob = await renderStrokesToPng(strokesRef.current, w, h)
+    downloadBlob(blob, `aircanvas-${stamp()}.png`)
+  }
+
+  function exportSvg() {
+    const { w, h } = exportDims()
+    const svg = strokesToSvg(strokesRef.current, w, h)
+    downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), `aircanvas-${stamp()}.svg`)
   }
 
   useEffect(() => {
@@ -368,6 +392,20 @@ export function CameraStage() {
           className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-40"
         >
           Alles löschen
+        </button>
+        <button
+          onClick={exportPng}
+          disabled={!hasStrokes}
+          className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-40"
+        >
+          PNG ↓
+        </button>
+        <button
+          onClick={exportSvg}
+          disabled={!hasStrokes}
+          className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-40"
+        >
+          SVG ↓
         </button>
       </div>
     </div>
