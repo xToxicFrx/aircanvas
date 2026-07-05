@@ -1,15 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { HandLandmarker } from '@mediapipe/tasks-vision'
 import { useHandLandmarker } from '../hooks/useHandLandmarker'
-
-const INDEX_FINGER_TIP = 8
+import { nextPinchState, penPoint, pinchRatio } from '../lib/pinch'
+import { drawStroke, INK_COLOR, INK_WIDTH, type Stroke } from '../lib/strokes'
 
 type CameraStatus = 'starting' | 'ready' | 'denied' | 'error'
 
 export function CameraStage() {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const inkCanvasRef = useRef<HTMLCanvasElement>(null)
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
+  const strokesRef = useRef<Stroke[]>([])
+  const currentStrokeRef = useRef<Stroke | null>(null)
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>('starting')
+  // mirrors strokesRef.current.length so the buttons re-render on changes
+  const [strokeCount, setStrokeCount] = useState(0)
   const { landmarkerRef, status: modelStatus, error: modelError } = useHandLandmarker()
 
   useEffect(() => {
@@ -19,6 +24,16 @@ export function CameraStage() {
     let stream: MediaStream | null = null
     let rafId = 0
     let lastVideoTime = -1
+    let pinched = false
+
+    function endStroke() {
+      const stroke = currentStrokeRef.current
+      currentStrokeRef.current = null
+      if (stroke && stroke.points.length > 1) {
+        strokesRef.current.push(stroke)
+        setStrokeCount(strokesRef.current.length)
+      }
+    }
 
     async function start() {
       try {
@@ -41,50 +56,81 @@ export function CameraStage() {
 
     function loop() {
       rafId = requestAnimationFrame(loop)
-      const canvas = canvasRef.current
+      const inkCanvas = inkCanvasRef.current
+      const overlay = overlayCanvasRef.current
       const landmarker = landmarkerRef.current
-      if (!video || !canvas || !landmarker || video.readyState < 2) return
-      // Only run detection when a new frame is available.
+      if (!video || !inkCanvas || !overlay || !landmarker || video.readyState < 2) return
       if (video.currentTime === lastVideoTime) return
       lastVideoTime = video.currentTime
 
-      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-        canvas.width = video.videoWidth
-        canvas.height = video.videoHeight
+      const w = video.videoWidth
+      const h = video.videoHeight
+      for (const c of [inkCanvas, overlay]) {
+        if (c.width !== w || c.height !== h) {
+          c.width = w
+          c.height = h
+        }
       }
 
       const result = landmarker.detectForVideo(video, performance.now())
-      const ctx = canvas.getContext('2d')!
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-
       const landmarks = result.landmarks[0]
+
+      // --- gesture / stroke state ---
+      if (landmarks) {
+        const wasPinched = pinched
+        pinched = nextPinchState(pinched, pinchRatio(landmarks))
+        const pen = penPoint(landmarks)
+        if (pinched && !wasPinched) {
+          currentStrokeRef.current = { points: [pen], color: INK_COLOR, width: INK_WIDTH }
+        } else if (pinched && currentStrokeRef.current) {
+          currentStrokeRef.current.points.push(pen)
+        } else if (!pinched && wasPinched) {
+          endStroke()
+        }
+      } else if (pinched) {
+        // hand lost mid-stroke: lift the pen instead of drawing a jump later
+        pinched = false
+        endStroke()
+      }
+
+      // --- ink layer: all finished strokes + the one being drawn ---
+      const ink = inkCanvas.getContext('2d')!
+      ink.clearRect(0, 0, w, h)
+      for (const s of strokesRef.current) drawStroke(ink, s, w, h)
+      if (currentStrokeRef.current) drawStroke(ink, currentStrokeRef.current, w, h)
+
+      // --- overlay layer: faint skeleton + pen cursor ---
+      const ctx = overlay.getContext('2d')!
+      ctx.clearRect(0, 0, w, h)
       if (!landmarks) return
 
-      // The video element is mirrored via CSS; mirror the overlay to match.
       ctx.save()
-      ctx.translate(canvas.width, 0)
-      ctx.scale(-1, 1)
-
-      ctx.strokeStyle = 'rgba(74, 222, 128, 0.9)'
-      ctx.lineWidth = 3
+      ctx.translate(w, 0)
+      ctx.scale(-1, 1) // video is CSS-mirrored; mirror the skeleton to match
+      ctx.strokeStyle = 'rgba(74, 222, 128, 0.25)'
+      ctx.lineWidth = 2
       for (const { start, end } of HandLandmarker.HAND_CONNECTIONS) {
         const a = landmarks[start]
         const b = landmarks[end]
         ctx.beginPath()
-        ctx.moveTo(a.x * canvas.width, a.y * canvas.height)
-        ctx.lineTo(b.x * canvas.width, b.y * canvas.height)
+        ctx.moveTo(a.x * w, a.y * h)
+        ctx.lineTo(b.x * w, b.y * h)
         ctx.stroke()
       }
-
-      landmarks.forEach((lm, i) => {
-        const isTip = i === INDEX_FINGER_TIP
-        ctx.beginPath()
-        ctx.arc(lm.x * canvas.width, lm.y * canvas.height, isTip ? 10 : 5, 0, Math.PI * 2)
-        ctx.fillStyle = isTip ? 'rgba(251, 191, 36, 0.95)' : 'rgba(34, 197, 94, 0.9)'
-        ctx.fill()
-      })
-
       ctx.restore()
+
+      // pen cursor is computed in screen space already — no mirror transform
+      const pen = penPoint(landmarks)
+      ctx.beginPath()
+      ctx.arc(pen.x * w, pen.y * h, 14, 0, Math.PI * 2)
+      if (pinched) {
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.95)'
+        ctx.fill()
+      } else {
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.9)'
+        ctx.lineWidth = 3
+        ctx.stroke()
+      }
     }
 
     start()
@@ -93,6 +139,18 @@ export function CameraStage() {
       stream?.getTracks().forEach((t) => t.stop())
     }
   }, [landmarkerRef])
+
+  function undo() {
+    strokesRef.current.pop()
+    setStrokeCount(strokesRef.current.length)
+  }
+
+  function clear() {
+    strokesRef.current = []
+    setStrokeCount(0)
+  }
+
+  const hasStrokes = strokeCount > 0
 
   const statusLabel =
     cameraStatus === 'denied'
@@ -106,22 +164,39 @@ export function CameraStage() {
             : null
 
   return (
-    <div className="relative w-full max-w-4xl overflow-hidden rounded-2xl bg-black shadow-2xl">
-      <video
-        ref={videoRef}
-        playsInline
-        muted
-        className="w-full -scale-x-100"
-      />
-      <canvas
-        ref={canvasRef}
-        className="pointer-events-none absolute inset-0 h-full w-full"
-      />
-      {statusLabel && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/70 p-6 text-center text-lg text-white">
-          {statusLabel}
-        </div>
-      )}
+    <div className="flex w-full max-w-4xl flex-col items-center gap-4">
+      <div className="relative w-full overflow-hidden rounded-2xl bg-black shadow-2xl">
+        <video ref={videoRef} playsInline muted className="w-full -scale-x-100" />
+        <canvas
+          ref={inkCanvasRef}
+          className="pointer-events-none absolute inset-0 h-full w-full"
+        />
+        <canvas
+          ref={overlayCanvasRef}
+          className="pointer-events-none absolute inset-0 h-full w-full"
+        />
+        {statusLabel && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/70 p-6 text-center text-lg text-white">
+            {statusLabel}
+          </div>
+        )}
+      </div>
+      <div className="flex gap-3">
+        <button
+          onClick={undo}
+          disabled={!hasStrokes}
+          className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-40"
+        >
+          Rückgängig
+        </button>
+        <button
+          onClick={clear}
+          disabled={!hasStrokes}
+          className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-40"
+        >
+          Alles löschen
+        </button>
+      </div>
     </div>
   )
 }

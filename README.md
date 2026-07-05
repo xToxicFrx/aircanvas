@@ -13,7 +13,8 @@ Work in progress — built over a 10-day sprint.
 
 - [x] **Day 1:** Vite + React + TS + Tailwind scaffold, live webcam hand tracking
       with landmark overlay
-- [ ] **Day 2:** Pinch gesture (thumb + index) as pen down/up — draw strokes in the air
+- [x] **Day 2:** Pinch gesture (thumb + index) as pen down/up — draw strokes in the air,
+      with hysteresis thresholds, undo/clear, PWA install + offline model caching
 - [ ] **Day 3:** Stroke smoothing (jitter filtering) + Ramer-Douglas-Peucker simplification
 - [ ] **Day 4:** Tool gestures (eraser, clear), pen-state feedback
 - [ ] **Day 5:** Drawing modes (freehand vs. structured sketch), export groundwork

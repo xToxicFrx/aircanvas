@@ -8,7 +8,7 @@ export default function App() {
           Air<span className="text-amber-400">Canvas</span>
         </h1>
         <p className="mt-2 text-zinc-400">
-          Halte deine Hand vor die Kamera — dein Zeigefinger wird live getrackt.
+          Daumen und Zeigefinger zusammendrücken = zeichnen. Loslassen = Stift absetzen.
         </p>
       </header>
       <CameraStage />
