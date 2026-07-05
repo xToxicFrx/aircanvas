@@ -15,7 +15,8 @@ Work in progress — built over a 10-day sprint.
       with landmark overlay
 - [x] **Day 2:** Pinch gesture (thumb + index) as pen down/up — draw strokes in the air,
       with hysteresis thresholds, undo/clear, PWA install + offline model caching
-- [ ] **Day 3:** Stroke smoothing (jitter filtering) + Ramer-Douglas-Peucker simplification
+- [x] **Day 3:** One-Euro filter smoothing + Ramer-Douglas-Peucker simplification,
+      smooth curve rendering, unit tests (Vitest) for pinch/RDP/filter
 - [ ] **Day 4:** Tool gestures (eraser, clear), pen-state feedback
 - [ ] **Day 5:** Drawing modes (freehand vs. structured sketch), export groundwork
 - [ ] **Day 6:** AI cleanup — sketch → clean diagram JSON / UI sketch → HTML/CSS

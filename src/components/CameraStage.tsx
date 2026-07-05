@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { HandLandmarker } from '@mediapipe/tasks-vision'
 import { useHandLandmarker } from '../hooks/useHandLandmarker'
-import { nextPinchState, penPoint, pinchRatio } from '../lib/pinch'
+import { PointFilter } from '../lib/filters'
+import { nextPinchState, penPoint, pinchRatio, type Point } from '../lib/pinch'
+import { simplifyStroke } from '../lib/simplify'
 import { drawStroke, INK_COLOR, INK_WIDTH, type Stroke } from '../lib/strokes'
 
 type CameraStatus = 'starting' | 'ready' | 'denied' | 'error'
@@ -25,11 +27,13 @@ export function CameraStage() {
     let rafId = 0
     let lastVideoTime = -1
     let pinched = false
+    const penFilter = new PointFilter()
 
-    function endStroke() {
+    function endStroke(w: number, h: number) {
       const stroke = currentStrokeRef.current
       currentStrokeRef.current = null
       if (stroke && stroke.points.length > 1) {
+        stroke.points = simplifyStroke(stroke.points, w, h)
         strokesRef.current.push(stroke)
         setStrokeCount(strokesRef.current.length)
       }
@@ -72,25 +76,32 @@ export function CameraStage() {
         }
       }
 
-      const result = landmarker.detectForVideo(video, performance.now())
+      const now = performance.now()
+      const result = landmarker.detectForVideo(video, now)
       const landmarks = result.landmarks[0]
 
       // --- gesture / stroke state ---
+      let pen: Point | null = null
       if (landmarks) {
         const wasPinched = pinched
         pinched = nextPinchState(pinched, pinchRatio(landmarks))
-        const pen = penPoint(landmarks)
+        // One-Euro filter runs on the pen point continuously (also while just
+        // hovering) so the cursor is calm and a new stroke starts lag-free
+        pen = penFilter.filter(penPoint(landmarks), now)
         if (pinched && !wasPinched) {
           currentStrokeRef.current = { points: [pen], color: INK_COLOR, width: INK_WIDTH }
         } else if (pinched && currentStrokeRef.current) {
           currentStrokeRef.current.points.push(pen)
         } else if (!pinched && wasPinched) {
-          endStroke()
+          endStroke(w, h)
         }
-      } else if (pinched) {
-        // hand lost mid-stroke: lift the pen instead of drawing a jump later
-        pinched = false
-        endStroke()
+      } else {
+        penFilter.reset() // don't drag old state into the hand's re-entry point
+        if (pinched) {
+          // hand lost mid-stroke: lift the pen instead of drawing a jump later
+          pinched = false
+          endStroke(w, h)
+        }
       }
 
       // --- ink layer: all finished strokes + the one being drawn ---
@@ -120,7 +131,7 @@ export function CameraStage() {
       ctx.restore()
 
       // pen cursor is computed in screen space already — no mirror transform
-      const pen = penPoint(landmarks)
+      if (!pen) return
       ctx.beginPath()
       ctx.arc(pen.x * w, pen.y * h, 14, 0, Math.PI * 2)
       if (pinched) {
