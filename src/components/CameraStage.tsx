@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { HandLandmarker } from '@mediapipe/tasks-vision'
 import { useHandLandmarker } from '../hooks/useHandLandmarker'
 import { strokeHit } from '../lib/erase'
-import { downloadBlob, renderStrokesToPng, strokesToSvg } from '../lib/export'
+import { blobToDataUrl, downloadBlob, renderStrokesToPng, strokesToSvg } from '../lib/export'
+import { AiPanel } from './AiPanel'
 import { PointFilter } from '../lib/filters'
 import { nextPinchState, penPoint, pinchRatio, type Point } from '../lib/pinch'
 import { simplifyStroke } from '../lib/simplify'
@@ -95,6 +96,13 @@ export function CameraStage() {
     const { w, h } = exportDims()
     const svg = strokesToSvg(strokesRef.current, w, h)
     downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), `aircanvas-${stamp()}.svg`)
+  }
+
+  async function getSketchPng(): Promise<string> {
+    const { w, h } = exportDims()
+    // white background for the AI — colored strokes read best on light ground
+    const blob = await renderStrokesToPng(strokesRef.current, w, h, '#ffffff')
+    return blobToDataUrl(blob)
   }
 
   useEffect(() => {
@@ -408,6 +416,7 @@ export function CameraStage() {
           SVG ↓
         </button>
       </div>
+      <AiPanel hasStrokes={hasStrokes} getSketchPng={getSketchPng} />
     </div>
   )
 }

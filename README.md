@@ -21,7 +21,9 @@ Work in progress — built over a 10-day sprint.
       progress ring, stroke-level eraser with segment hit testing, snapshot undo history
 - [x] **Day 5:** PNG + SVG export — SVG paths use the same midpoint-quadratic
       smoothing as the canvas renderer, so exports match the live drawing exactly
-- [ ] **Day 6:** AI cleanup — sketch → clean diagram JSON / UI sketch → HTML/CSS
+- [x] **Day 6:** AI cleanup — sketch → validated diagram JSON → clean SVG, and
+      UI sketch → HTML/CSS with sandboxed live preview (OpenAI vision via
+      serverless function, zod validation with one retry-on-invalid)
 - [ ] **Day 7:** Diagram renderer + live preview of generated UI code
 - [ ] **Day 8:** Local persistence (IndexedDB), export as PNG/SVG/code
 - [ ] **Day 9:** Robustness (bad lighting, lost tracking, AI fallbacks) + unit tests
@@ -36,6 +38,12 @@ npm run dev
 
 Requires a browser with webcam access. The hand-tracking model (~7 MB) is
 loaded from a CDN on first start.
+
+The AI cleanup feature runs through a Vercel serverless function
+(`api/cleanup.ts`) and needs an `OPENAI_API_KEY` environment variable in the
+Vercel project settings (optionally `OPENAI_MODEL`, default `gpt-4o-mini`).
+Note: `npm run dev` serves only the frontend — the `/api` route runs on Vercel
+(or locally via `vercel dev`).
 
 ## Tech
 
