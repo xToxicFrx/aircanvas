@@ -6,7 +6,6 @@ export interface Stroke {
   width: number
 }
 
-export const INK_COLOR = '#fbbf24'
 export const INK_WIDTH = 6
 
 export function drawStroke(

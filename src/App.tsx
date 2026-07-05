@@ -9,6 +9,7 @@ export default function App() {
         </h1>
         <p className="mt-2 text-zinc-400">
           Daumen und Zeigefinger zusammendrücken = zeichnen. Loslassen = Stift absetzen.
+          Für Farbe/Radierer: Cursor kurz über einem Button schweben lassen.
         </p>
       </header>
       <CameraStage />
