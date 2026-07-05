@@ -1,5 +1,7 @@
 node_modules
 dist
+# derived from node_modules by scripts/copy-mediapipe-wasm.mjs
+public/wasm
 *.local
 .env
 .DS_Store

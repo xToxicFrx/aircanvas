@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision'
 
-const WASM_URL =
-  'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm'
+// Self-hosted (copied from the installed npm package by scripts/copy-mediapipe-wasm.mjs)
+// so the wasm always matches the JS API version — no CDN version drift.
+const WASM_URL = '/wasm'
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task'
 

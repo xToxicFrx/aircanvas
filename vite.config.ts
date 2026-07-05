@@ -29,15 +29,17 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Cache the MediaPipe wasm + hand model so the app starts instantly
-        // (and offline) after the first visit.
+        // The self-hosted wasm runtime ships in three variants (~11 MB each)
+        // but the browser only ever loads one — runtime-cache the one that is
+        // actually requested instead of precaching all of them.
+        globIgnores: ['wasm/**'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/npm\/@mediapipe\/.*/i,
+            urlPattern: /^https?:\/\/[^/]+\/wasm\//i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'mediapipe-wasm',
-              expiration: { maxEntries: 10 },
+              expiration: { maxEntries: 8 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
